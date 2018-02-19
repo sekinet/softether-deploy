@@ -1,0 +1,68 @@
+---
+
+- name: install common packages
+  become: true
+  become_method: sudo
+  apt:
+    name="{{ item }}"
+    state=installed
+  with_items:
+    - build-essential
+    - libc6
+    - zlibc
+    - openssl
+    - readline-common
+    #- ncurses-base
+    #- pthread
+    - python-pexpect
+
+- name: prepare working directory
+  file:
+    path: /tmp/vpn-server-install
+    owner: sekinet
+    group: sekinet
+    state: directory
+    mode: 0755
+
+- name: download softether vpn
+  get_url:
+    # SoftEther VPN Server (Ver 4.25, Build 9656, rtm) softether-vpnserver-v4.25-9656-rtm-2018.01.15-linux-x64-64bit.tar.gz (5.99 MB)
+    url: http://www.softether-download.com/files/softether/v4.25-9656-rtm-2018.01.15-tree/Linux/SoftEther_VPN_Server/64bit_-_Intel_x64_or_AMD64/softether-vpnserver-v4.25-9656-rtm-2018.01.15-linux-x64-64bit.tar.gz
+    dest: /tmp/
+
+- name: extract package files
+  unarchive:
+    src: /tmp/softether-vpnserver-v4.25-9656-rtm-2018.01.15-linux-x64-64bit.tar.gz
+    dest: /tmp/vpn-server-install
+    remote_src: true
+
+- name: install softether vpn
+  expect:
+    command: make
+    # You need to agree
+    responses:
+      'Please choose one of above number:': "1"
+  args:
+    chdir: /tmp/vpn-server-install/vpnserver
+
+- name: setup vpnserver bin files
+  become: true
+  become_method: sudo
+  shell: rm -rf /usr/local/vpnserver; mv /tmp/vpn-server-install/vpnserver /usr/local
+
+- name: setup vpnserver file permission
+  become: true
+  become_method: sudo
+  shell: chmod 600 *; chmod 700 vpncmd; chmod 700 vpnserver
+  args:
+    chdir: /usr/local
+
+- name: setup init file for vpnserver
+  become: true
+  become_method: sudo
+  template:
+    src: vpnserver.j2
+    dest: /etc/init.d/vpnserver
+    owner: root
+    group: root
+    mode: '0755'

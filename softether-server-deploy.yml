@@ -1,0 +1,4 @@
+---
+- hosts: vpnserver
+  roles:
+    - softether-vpn
